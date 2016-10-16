@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<project name="name" version="10.9" platform="test">
+  <Feature name="fe" subarea="sa" version="a">
+    <step name="Lol1"/>
+    <step name="Lol2"/>
+  </Feature>
+</project>
