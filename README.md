@@ -1,2 +1,1 @@
-# UsageTracking
-Application Usage Tracking
+# Application Usage Tracking

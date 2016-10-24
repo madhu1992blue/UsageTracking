@@ -1,56 +1,58 @@
-var xmlHelper = require('../../helpers/xmlHelper');
+var MongoClient = require('mongodb').MongoClient;
+var assert = require('assert');
+var mongoUrl = 'mongodb://localhost:27017/test';
+var ObjectId = require('mongodb').ObjectID;
+
+var DBHelper = require('../../helpers/DBHelper');
 var LogHandler= {
-    createNew : function(productName, productVersion, platform){
-        var xmlName = productName+"_"+productVersion+"_"+platform+".xml";
-        console.log("Creating New XML:"+xmlName);
-        xmlHelper.createNew(xmlName, productName, productVersion, platform);
-        /*LogHandler.addStep(xmlName,{"name": productName, "version": productVersion, "platform":platform});
-        LogHandler.addStep(xmlName,{"name": productName, "version": productVersion, "platform":platform});
-        LogHandler.defineFeatureArea(xmlName,"fe","sa", "a");
-        //LogHandler.defineFeatureArea(xmlName,"fe","sa", "a");
-        LogHandler.addStepToFeatureArea(xmlName, "fe", "sa", "a",{name:"name"});*/
-        return xmlName;
+    createNew : function(productName, productVersion, productPlatform){
+        record = { project: { name: productName, version: productVersion, platform: productPlatform } };
+       insertedId =  DBHelper.insertDocument("sessions", record);
+       return insertedId;
     },
-    addStep: function(xmlName,attribs){
-        xmlHelper.addNode(xmlName, "step", attribs);
-        
-    },
-    defineFeatureArea: function(xmlName, featureName, subArea, version){
-        xmlHelper.addNode(xmlName, "Feature", {name: featureName, subarea: subArea, version: version });
-    },
-    addStepToFeatureArea: function(xmlName, featureName, subArea, version, step){
-        jsonObj = xmlHelper.xmlFileToJs(xmlName);
-        featureAttribs = {name:featureName, subarea:subArea, version: version};
-        if(jsonObj["project"]["Feature"]!==undefined){
-            var count=0, isPresent = false;
-            for(var Feature in jsonObj["project"]["Feature"]){
-                var isValid=true;
-                for( var attribute in featureAttribs){
-                    
-                    if(jsonObj["project"]["Feature"][count]['$'][attribute]!==featureAttribs[attribute]){
-                        isValid = false;
-                       
+    addStep: function(tokenId,stepJson){
+        var condition = {_id: ObjectId(tokenId) }
+        var action = {
+                    $push: {
+                        steps:  stepJson
                     }
-                   
+ 
+                };
+        DBHelper.updateDocument('sessions',condition, action);
+    },
+    defineFeatureArea: function(tokenId, featureName, subArea, version){
+        var condition = {_id: ObjectId(tokenId), "features": {$elemMatch: {name: featureName, subArea: subArea, version: version}, }};
+        if(DBHelper.findOne('sessions',condition)==null){
+            docCondition = {_id: ObjectId(tokenId)};
+            action = {
+                $push: {
+                    features: {name: featureName, subArea: subArea, version: version}
                 }
-                if(isValid){
-                    if(jsonObj["project"]["Feature"][count]["step"]==undefined)
-                        jsonObj["project"]["Feature"][count]["step"]=[];
-                    jsonObj["project"]["Feature"][count]["step"].push({$:step} );
-                    xmlHelper.jsToXmlFile(xmlName, jsonObj);
-                    isPresent = true;
+            };
+            DBHelper.updateDocument('sessions', docCondition, action );
+        }
+         
+    },
+    addStepToFeatureArea: function(tokenId, featureName, subArea, version, step){
+        LogHandler.defineFeatureArea(tokenId, featureName, subArea, version);
+        var condition = {_id: ObjectId(tokenId), "features": {$elemMatch: {name: featureName, subArea: subArea, version: version} }};
+        var action = {
+                $push: {
+                    "features.$.steps": step
                 }
-                count++;
+        };
+        DBHelper.updateDocument('sessions', condition, action );
+    },
+    findSteps: function(featureName, subArea,version){
+        return DBHelper.find('sessions',{
+            features: {
+                $elemMatch: {
+                    name: featureName,
+                    subArea: subArea,
+                    version: version
+                }
             }
-            if(!isPresent&&count==jsonObj["project"]["feature"].length){
-                LogHandler.defineFeatureArea(xmlName, featureName, subArea, version);
-                LogHandler.addStepToFeatureArea(xmlName, featureName, subArea, version, step);
-            }
-        }
-        else{
-                LogHandler.defineFeatureArea(xmlName, featureName, subArea, version);
-                LogHandler.addStepToFeatureArea(xmlName, featureName, subArea, version, step);
-        }
+        }, {_id: 1, "features.$": 1});
     }
 }
 
